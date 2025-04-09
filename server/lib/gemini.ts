@@ -1,12 +1,14 @@
 import { GoogleGenAI} from "@google/genai";
 import { Sage } from "@shared/schema";
 import { WebSocket } from "ws";
+import { DocumentSearch } from "./docsearch";
 
 if (!process.env.GEMINI_API_KEY) {
   throw new Error("GEMINI_API_KEY environment variable is not set");
 }
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const docSearch = new DocumentSearch(process.env.GEMINI_API_KEY);
 
 async function generateSingleSageResponse(
   content: string,
@@ -15,9 +17,18 @@ async function generateSingleSageResponse(
   messageId: number
 ): Promise<string> {
   try {
+    // Search for relevant document chunks
+    const relevantChunks = await docSearch.search(content);
+    const contextFromDocs = relevantChunks.length > 0 
+      ? `\n\nRelevant context from spiritual texts:\n${relevantChunks.map(chunk => 
+          `From ${chunk.metadata.source}${chunk.metadata.page ? ` page ${chunk.metadata.page}` : ''}${chunk.metadata.chapter ? ` chapter "${chunk.metadata.chapter}"` : ''}:\n${chunk.content}`
+        ).join('\n\n')}`
+      : '';
+
     const prompt = `
       You are ${sage.name}, ${sage.title}.
       ${sage.prompt}
+      ${contextFromDocs}
 
       Seeker's question: ${content}
 

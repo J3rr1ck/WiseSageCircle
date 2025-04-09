@@ -4,11 +4,19 @@ import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { DocumentManager } from "./lib/document-manager";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+
+// Initialize document manager
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY environment variable is not set");
+}
+
+const documentManager = new DocumentManager(process.env.GEMINI_API_KEY);
 
 // Ensure JSON middleware is set up before any routes
 app.use(express.json());
@@ -60,6 +68,14 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = registerRoutes(app);
+
+  // Load all documents on startup
+  try {
+    await documentManager.loadAllDocuments();
+    log('All documents loaded successfully');
+  } catch (error) {
+    console.error('Error loading documents:', error);
+  }
 
   // Global error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
